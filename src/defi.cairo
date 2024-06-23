@@ -22,3 +22,33 @@ pub trait ISimpleDefi<TContractState> {
     fn withdraw(ref self: TContractState, shares: u256);
 }
 
+
+#[starknet::contract]
+pub mod SimpleDefi {
+    use super::{IERC20Dispatcher, IERC20DispatcherTrait};
+    use starknet::{ContractAddress, get_caller_address, get_contract_address};
+
+    #[storage]
+    struct Storage {
+        token: IERC20Dispatcher,
+        total_supply: u256,
+        balance_of: LegacyMap<ContractAddress, u256>
+    }
+
+    #[constructor]
+    fn constructor (ref self: ContractState, token: ContractAddress) {
+        self.token.write(IERC20Dispatcher { contract_address: token});
+    }
+
+    #[generate_trait]
+    impl PrivateFunctions of PrivateFunctionsTrait {
+        fn _mint(ref self: ContractState, to: ContractAddress, shares: u256) {
+            self.total_supply.write(self.total_supply.read() + shares);
+            self.balance_of.write(self.balance_of.read(to) + shares);
+        }
+        fn _burn(ref self: ContractState, from: ContractAddress, shares: u256) {
+             self.total_supply.write(self.total_supply.read() - shares);
+            self.balance_of.write(self.balance_of.read(from) - shares);
+        }
+    }
+}
