@@ -69,5 +69,16 @@ pub mod SimpleDefi {
             PrivateFunctions::_mint(ref self, caller, shares);
             self.token.read().transfer_from(caller, this_contract, amount);
         }
+        
+        fn withdraw(ref self: ContractState, shares: u256) {
+            let caller = get_caller_address();
+            let this_contract = get_contract_address();
+
+            let balance = self.token.read().balance_of(this_contract);
+            let amount = ( shares * balance ) / self.total_supply.read();
+            PrivateFunctions::_burn(ref self, caller, shares);
+            self.token.read().transfer(caller, amount);
+
+        }
     }
 }
