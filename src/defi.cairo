@@ -8,12 +8,12 @@ pub trait IERC20<TContractState> {
     fn total_supply(self: @TContractState) -> u256;
     fn balance_of(self: @TContractState, account: ContractAdress) -> u256;
     fn allowance(self: @TContractState, owner: ContractAddress, spender: ContractAddress) -> u256;
-    fn transfer (ref self: @TContractState, recipient: ContractAddress, amount: u256)-> bool;
-    fn transfer_from(ref self: @TContractState, sender: ContractAddress, recipiant: ContractAddress, amount: u256) -> u256;
-    fn approve(ref self: @TContractState, spender: ContractAddress, amount: u256)-> bool;
-
+    fn transfer(ref self: @TContractState, recipient: ContractAddress, amount: u256) -> bool;
+    fn transfer_from(
+        ref self: @TContractState, sender: ContractAddress, recipiant: ContractAddress, amount: u256
+    ) -> u256;
+    fn approve(ref self: @TContractState, spender: ContractAddress, amount: u256) -> bool;
 }
-
 
 
 #[starknet::interface]
@@ -36,8 +36,8 @@ pub mod SimpleDefi {
     }
 
     #[constructor]
-    fn constructor (ref self: ContractState, token: ContractAddress) {
-        self.token.write(IERC20Dispatcher { contract_address: token});
+    fn constructor(ref self: ContractState, token: ContractAddress) {
+        self.token.write(IERC20Dispatcher { contract_address: token });
     }
 
     #[generate_trait]
@@ -47,8 +47,27 @@ pub mod SimpleDefi {
             self.balance_of.write(self.balance_of.read(to) + shares);
         }
         fn _burn(ref self: ContractState, from: ContractAddress, shares: u256) {
-             self.total_supply.write(self.total_supply.read() - shares);
+            self.total_supply.write(self.total_supply.read() - shares);
             self.balance_of.write(self.balance_of.read(from) - shares);
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl SimpleDefi of super::ISimpleDefi<ContractState> {
+        fn deposit(ref self: ContractState, amount: u256) {
+            let caller = get_caller_address();
+            let this_contract = get_contract_address();
+
+            let mut shares = 0;
+
+            if self.total_supply.read() == 0 {
+                shares = amount;
+            } else {
+                let balance = self.token.read().balance_of(this_contract);
+                shares = (amount * self.total_supply.read()) / balance;
+            }
+            PrivateFunctions::_mint(ref self, caller, shares);
+            self.token.read().transfer_from(caller, this_contract, amount);
         }
     }
 }
